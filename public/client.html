@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alliance CRM — Client</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="site">
+    <span class="brand">Alliance CRM</span>
+    <nav id="nav"></nav>
+  </header>
+  <main>
+    <a href="/dashboard.html">&larr; Back to dashboard</a>
+    <h1 id="title">Client</h1>
+    <div id="pageMsg"></div>
+
+    <div class="card">
+      <h2>Record</h2>
+      <form id="clientForm">
+        <label>Full name</label><input name="full_name">
+        <div class="row">
+          <div><label>Email</label><input name="email"></div>
+          <div><label>Phone</label><input name="phone"></div>
+        </div>
+        <div class="row">
+          <div><label>Referral source</label><input name="referral_source"></div>
+          <div><label>Service needs</label><input name="service_needs"></div>
+        </div>
+        <div class="row">
+          <div><label>Program</label><input name="program"></div>
+          <div><label>Enrolled</label>
+            <select name="enrolled"><option value="false">No</option><option value="true">Yes</option></select>
+          </div>
+        </div>
+        <label>Intake notes</label><textarea name="notes"></textarea>
+        <br><br>
+        <button type="submit">Save record</button>
+      </form>
+    </div>
+
+    <div class="card" id="notesCard">
+      <h2>Case notes</h2>
+      <p class="muted">Sensitive counselling-style notes.</p>
+      <!-- Notes are injected with innerHTML below -> stored XSS sink. -->
+      <div id="notesList"></div>
+      <h3>Add a note</h3>
+      <div id="noteMsg"></div>
+      <textarea id="noteBody" placeholder="Write a case note..."></textarea>
+      <br><br>
+      <button id="addNote">Add note</button>
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+  <script>
+    if (requireLogin()) {
+      renderHeader();
+      const params = new URLSearchParams(location.search);
+      const id = params.get('id');
+      const isNew = (id === 'new');
+      const form = document.getElementById('clientForm');
+
+      async function loadClient() {
+        if (isNew) { document.getElementById('title').textContent = 'New client';
+          document.getElementById('notesCard').style.display = 'none'; return; }
+        try {
+          const c = await api('/api/clients/' + id); // IDOR: server does no ownership check
+          document.getElementById('title').textContent = c.full_name + ' (#' + c.id + ')';
+          for (const k of ['full_name','email','phone','referral_source','service_needs','program','notes']) {
+            if (form[k]) form[k].value = c[k] == null ? '' : c[k];
+          }
+          if (form.enrolled) form.enrolled.value = String(c.enrolled);
+          loadNotes();
+        } catch (err) { msg('pageMsg', err.message, 'err'); }
+      }
+
+      async function loadNotes() {
+        try {
+          const r = await api('/api/clients/' + id + '/notes');
+          const box = document.getElementById('notesList');
+          box.innerHTML = '';
+          if (r.rows.length === 0) { box.innerHTML = '<p class="muted">No case notes yet.</p>'; return; }
+          r.rows.forEach(n => {
+            const div = document.createElement('div');
+            div.className = 'note';
+            // VULN A03 (stored XSS): note body rendered as raw HTML, not text.
+            div.innerHTML = '<strong>' + (n.author_name || 'Unknown') + '</strong> ' +
+              '<span class="muted">' + new Date(n.created_at).toLocaleString() + '</span><br>' + n.body;
+            box.appendChild(div);
+          });
+        } catch (err) { msg('pageMsg', err.message, 'err'); }
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = Object.fromEntries(new FormData(form).entries());
+        payload.enrolled = payload.enrolled === 'true';
+        try {
+          if (isNew) {
+            const c = await api('/api/clients', { method: 'POST', body: JSON.stringify(payload) });
+            location.href = '/client.html?id=' + c.id;
+          } else {
+            await api('/api/clients/' + id, { method: 'PUT', body: JSON.stringify(payload) });
+            msg('pageMsg', 'Saved.', 'ok');
+          }
+        } catch (err) { msg('pageMsg', err.message, 'err'); }
+      });
+
+      const addBtn = document.getElementById('addNote');
+      if (addBtn) addBtn.addEventListener('click', async () => {
+        const body = document.getElementById('noteBody').value;
+        try {
+          await api('/api/clients/' + id + '/notes', { method: 'POST', body: JSON.stringify({ body }) });
+          document.getElementById('noteBody').value = '';
+          msg('noteMsg', 'Note added.', 'ok');
+          loadNotes();
+        } catch (err) { msg('noteMsg', err.message, 'err'); }
+      });
+
+      loadClient();
+    }
+  </script>
+</body>
+</html>

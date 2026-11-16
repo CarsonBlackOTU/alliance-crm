@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alliance CRM — Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="site">
+    <span class="brand">Alliance CRM</span>
+    <nav id="nav"></nav>
+  </header>
+  <main>
+    <h1>Client Dashboard</h1>
+    <div id="roleNote" class="note"></div>
+
+    <div class="card">
+      <h2>Search clients</h2>
+      <form id="searchForm" class="row">
+        <input name="q" placeholder="Search by name or email...">
+        <button type="submit" style="flex:0 0 auto">Search</button>
+      </form>
+      <div id="searchMsg"></div>
+      <table id="results"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Service needs</th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <div class="card">
+      <h2>All clients</h2>
+      <div id="toolbar">
+        <a class="btnlink" href="/client.html?id=new">+ New client</a>
+        <button id="exportBtn" class="secondary">Export all records</button>
+      </div>
+      <div id="listMsg"></div>
+      <table id="clientList"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Program</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+  <script>
+    if (requireLogin()) {
+      renderHeader();
+      const user = getUser();
+      document.getElementById('roleNote').textContent =
+        'Logged in as ' + user.username + ' (' + user.role + '). Your menu reflects your role.';
+
+      // Role-based UI: volunteer is read-only; intake/peer can't manage staff (link hidden later).
+      if (user.role === 'volunteer') {
+        document.getElementById('toolbar').style.display = 'none';
+      }
+
+      // --- Search (hits the SQL-injectable endpoint) ---
+      document.getElementById('searchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const q = new FormData(e.target).get('q');
+        try {
+          const r = await api('/api/clients/search?q=' + encodeURIComponent(q));
+          const tb = document.querySelector('#results tbody');
+          tb.innerHTML = '';
+          r.rows.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + row.id + '</td><td>' + (row.full_name||'') + '</td><td>' +
+              (row.email||'') + '</td><td>' + (row.phone||'') + '</td><td>' + (row.service_needs||'') + '</td>';
+            tb.appendChild(tr);
+          });
+          msg('searchMsg', r.rows.length + ' result(s).', 'ok');
+        } catch (err) { msg('searchMsg', err.message, 'err'); }
+      });
+
+      // --- Client list ---
+      async function loadClients() {
+        try {
+          const r = await api('/api/clients');
+          const tb = document.querySelector('#clientList tbody');
+          tb.innerHTML = '';
+          r.rows.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + row.id + '</td><td>' + (row.full_name||'') + '</td><td>' +
+              (row.email||'') + '</td><td>' + (row.phone||'') + '</td><td>' + (row.program||'') +
+              '</td><td><a href="/client.html?id=' + row.id + '">open</a></td>';
+            tb.appendChild(tr);
+          });
+          msg('listMsg', r.rows.length + ' client(s).', 'ok');
+        } catch (err) { msg('listMsg', err.message, 'err'); }
+      }
+      loadClients();
+
+      // --- Export ---
+      const expBtn = document.getElementById('exportBtn');
+      if (expBtn) expBtn.addEventListener('click', async () => {
+        try {
+          const r = await api('/api/export/clients');
+          const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'client_export.json';
+          a.click();
+        } catch (err) { msg('listMsg', err.message, 'err'); }
+      });
+    }
+  </script>
+</body>
+</html>

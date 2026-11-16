@@ -1,0 +1,20 @@
+# PostgreSQL for Alliance CRM.
+# Port is bound to 127.0.0.1 on the host so the database itself is not exposed
+# on the host-only network - only the Node app (see server.js HOST/PORT) is.
+services:
+  db:
+    image: postgres:15
+    container_name: alliance_crm_db
+    environment:
+      POSTGRES_USER: alliance
+      POSTGRES_PASSWORD: alliance_pg_pw
+      POSTGRES_DB: alliance_crm
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      # init.sql only runs on a FRESH volume. To re-seed: docker compose down -v && docker compose up -d
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - alliance_pgdata:/var/lib/postgresql/data
+
+volumes:
+  alliance_pgdata:

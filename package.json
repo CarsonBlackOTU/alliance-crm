@@ -1,0 +1,19 @@
+{
+  "name": "alliance-crm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Alliance CRM - client management for a fictional veteran wellness nonprofit (INTENTIONALLY VULNERABLE training target)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "echo 'Seeding happens automatically via docker-compose init.sql on a fresh db volume. Run: docker compose down -v && docker compose up -d'"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.5",
+    "serve-index": "^1.9.1"
+  }
+}

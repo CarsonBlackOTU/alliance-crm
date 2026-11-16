@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alliance CRM — Staff Login</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="site">
+    <span class="brand">Alliance CRM — Staff Portal</span>
+    <nav id="nav"></nav>
+  </header>
+  <main>
+    <h1>Staff Login</h1>
+    <div class="card" style="max-width:420px">
+      <div id="loginMsg"></div>
+      <form id="loginForm">
+        <label>Username</label>
+        <input name="username" autocomplete="username" required>
+        <label>Password</label>
+        <input name="password" type="password" autocomplete="current-password" required>
+        <br><br>
+        <button type="submit">Log in</button>
+      </form>
+      <p class="muted" style="margin-top:14px">
+        Forgot password? <a href="#" id="resetLink">Request a reset token</a>
+      </p>
+    </div>
+  </main>
+  <script src="/app.js"></script>
+  <script>
+    renderHeader();
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const payload = Object.fromEntries(fd.entries());
+      try {
+        const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) });
+        saveSession(data);
+        location.href = '/dashboard.html';
+      } catch (err) {
+        msg('loginMsg', err.message, 'err'); // shows the enumeration-friendly messages
+      }
+    });
+    document.getElementById('resetLink').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const u = prompt('Username to reset:');
+      if (!u) return;
+      try {
+        const r = await api('/api/auth/reset-request', { method: 'POST', body: JSON.stringify({ username: u }) });
+        msg('loginMsg', 'Reset token: ' + r.reset_token, 'ok');
+      } catch (err) { msg('loginMsg', err.message, 'err'); }
+    });
+  </script>
+</body>
+</html>

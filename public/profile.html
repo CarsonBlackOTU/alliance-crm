@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alliance CRM — My Profile</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="site">
+    <span class="brand">Alliance CRM</span>
+    <nav id="nav"></nav>
+  </header>
+  <main>
+    <h1>My Profile</h1>
+    <p class="muted">Update your own name, email, or password. (Role is managed by an administrator.)</p>
+    <div class="card" style="max-width:480px">
+      <div id="pMsg"></div>
+      <form id="profileForm">
+        <label>Full name</label><input name="full_name">
+        <label>Email</label><input name="email">
+        <label>New password (optional)</label><input name="password" type="password">
+        <br><br>
+        <button type="submit">Save profile</button>
+      </form>
+      <p class="muted" style="margin-top:12px">
+        Note: the UI does not offer a role selector here — but the underlying
+        <code>PATCH /api/users/:id</code> endpoint does accept one.
+      </p>
+    </div>
+  </main>
+  <script src="/app.js"></script>
+  <script>
+    if (requireLogin()) {
+      renderHeader();
+      const user = getUser();
+      // The profile page only submits name/email/password. The mass-assignment
+      // bug is reached by adding "role" to the PATCH body (e.g. via Burp Repeater).
+      document.getElementById('profileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = Object.fromEntries(new FormData(e.target).entries());
+        if (!payload.password) delete payload.password;
+        try {
+          await api('/api/users/' + user.id, { method: 'PATCH', body: JSON.stringify(payload) });
+          msg('pMsg', 'Profile updated.', 'ok');
+        } catch (err) { msg('pMsg', err.message, 'err'); }
+      });
+    }
+  </script>
+</body>
+</html>
